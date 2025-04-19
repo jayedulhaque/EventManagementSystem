@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver_container
+    environment:
+      SA_PASSWORD: "YourStrong!Passw0rd"
+      ACCEPT_EULA: "Y"
+      MSSQL_AGENT_ENABLED: "true"  # Add this
+    ports:
+      - "1433:1433"
+    volumes:
+      - sql_data:/var/opt/mssql
+    healthcheck:  # Add health check
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -U sa -P YourStrong!Passw0rd -Q \"SELECT 1\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: always
+
+  webapi:
+    build:
+      context: .
+      dockerfile: AuthService/Dockerfile
+    container_name: webapi_container
+    depends_on:
+      - sqlserver
+    environment:
+      ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=Dev-Users;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;"
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_URLS: "http://+:8080"  # Removed HTTPS
+    ports:
+      - "5000:8080"  # Only HTTP port
+    volumes:
+      - ./appdata:/app/keys  # For Data Protection keys
+    restart: always
+
+volumes:
+  sql_data:
+    driver: local
